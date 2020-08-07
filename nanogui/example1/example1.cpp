@@ -48,16 +48,263 @@
 
 using namespace nanogui;
 
+#include <nanovg_DE.hpp>
+
+#define ENGINE_DLL 1
+#define D3D11_SUPPORTED 1
+#define D3D12_SUPPORTED 1
+#define GL_SUPPORTED 1
+#define VULKAN_SUPPORTED 1
+
+#include <DiligentCore/Common/interface/FileWrapper.hpp>
+#include <DiligentCore/Graphics/GraphicsEngineD3D11/interface/EngineFactoryD3D11.h>
+#include <DiligentCore/Graphics/GraphicsEngineD3D12/interface/EngineFactoryD3D12.h>
+#include <DiligentCore/Graphics/GraphicsEngineOpenGL/interface/EngineFactoryOpenGL.h>
+#include <DiligentCore/Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h>
+#include <DiligentCore/Graphics/GraphicsTools/interface/DurationQueryHelper.hpp>
+#include <DiligentCore/Graphics/GraphicsTools/interface/ScreenCapture.hpp>
+#include <DiligentTools/TextureLoader/interface/Image.h>
+#include <chrono>
+#include <sstream>
+
+using Clock = std::chrono::high_resolution_clock;
+
+#ifdef _DEBUG
+#define DILIGENT_DEBUG
+#endif  // _DEBUG
+
+#define NANOGUI_MSAA
+
+static void callback(DE::DEBUG_MESSAGE_SEVERITY severity, const char *message,
+    const char *function, const char *file, int line) {
+    if (severity != DE::DEBUG_MESSAGE_SEVERITY_INFO) {
+        DebugBreak();
+    }
+    else
+        OutputDebugStringA(message);
+}
+
+class Engine final {
+public:
+    Engine(void *hWnd, DE::RENDER_DEVICE_TYPE type) {
+        DE::SwapChainDesc SCDesc;
+        SCDesc.DefaultDepthValue = 1.0f;
+        SCDesc.DefaultStencilValue = 0;
+        SCDesc.ColorBufferFormat = DE::TEX_FORMAT_RGBA8_UNORM;
+        SCDesc.DepthBufferFormat = DE::TEX_FORMAT_D24_UNORM_S8_UINT;
+        SCDesc.Usage = DE::SWAP_CHAIN_USAGE_RENDER_TARGET |
+            DE::SWAP_CHAIN_USAGE_COPY_SOURCE;
+
+        switch (type) {
+#if D3D11_SUPPORTED
+            case DE::RENDER_DEVICE_TYPE_D3D11:
+            {
+                DE::EngineD3D11CreateInfo EngineCI;
+                EngineCI.DebugMessageCallback = callback;
+#ifdef DILIGENT_DEBUG
+                EngineCI.DebugFlags |=
+                    DE::D3D11_DEBUG_FLAG_CREATE_DEBUG_DEVICE |
+                    DE::D3D11_DEBUG_FLAG_VERIFY_COMMITTED_SHADER_RESOURCES;
+#endif
+#if ENGINE_DLL
+                // Load the dll and import GetEngineFactoryD3D11() function
+                auto GetEngineFactoryD3D11 = DE::LoadGraphicsEngineD3D11();
+#endif
+                auto *pFactoryD3D11 = GetEngineFactoryD3D11();
+                pFactoryD3D11->CreateDeviceAndContextsD3D11(EngineCI, &device,
+                    &immediateContext);
+                DE::Win32NativeWindow window{ hWnd };
+                pFactoryD3D11->CreateSwapChainD3D11(
+                    device, immediateContext, SCDesc, DE::FullScreenModeDesc{},
+                    window, &swapChain);
+            } break;
+#endif
+
+#if D3D12_SUPPORTED
+            case DE::RENDER_DEVICE_TYPE_D3D12:
+            {
+#if ENGINE_DLL
+                // Load the dll and import GetEngineFactoryD3D12() function
+                auto GetEngineFactoryD3D12 = DE::LoadGraphicsEngineD3D12();
+#endif
+                DE::EngineD3D12CreateInfo EngineCI;
+                EngineCI.DebugMessageCallback = callback;
+#ifdef DILIGENT_DEBUG
+                EngineCI.EnableDebugLayer = true;
+#endif
+                auto *pFactoryD3D12 = GetEngineFactoryD3D12();
+                pFactoryD3D12->CreateDeviceAndContextsD3D12(EngineCI, &device,
+                    &immediateContext);
+                DE::Win32NativeWindow window{ hWnd };
+                pFactoryD3D12->CreateSwapChainD3D12(
+                    device, immediateContext, SCDesc, DE::FullScreenModeDesc{},
+                    window, &swapChain);
+            } break;
+#endif
+
+#if GL_SUPPORTED
+            case DE::RENDER_DEVICE_TYPE_GL:
+            {
+
+#if EXPLICITLY_LOAD_ENGINE_GL_DLL
+                // Load the dll and import GetEngineFactoryOpenGL() function
+                auto GetEngineFactoryOpenGL = DE::LoadGraphicsEngineOpenGL();
+#endif
+                auto *pFactoryOpenGL = GetEngineFactoryOpenGL();
+
+                DE::EngineGLCreateInfo EngineCI;
+                EngineCI.Window.hWnd = hWnd;
+                EngineCI.DebugMessageCallback = callback;
+#ifdef DILIGENT_DEBUG
+                EngineCI.CreateDebugContext = true;
+#endif
+                pFactoryOpenGL->CreateDeviceAndSwapChainGL(
+                    EngineCI, &device, &immediateContext, SCDesc, &swapChain);
+            } break;
+#endif
+
+#if VULKAN_SUPPORTED
+            case DE::RENDER_DEVICE_TYPE_VULKAN:
+            {
+#if EXPLICITLY_LOAD_ENGINE_VK_DLL
+                // Load the dll and import GetEngineFactoryVk() function
+                auto GetEngineFactoryVk = DE::LoadGraphicsEngineVk();
+#endif
+                DE::EngineVkCreateInfo EngineCI;
+                EngineCI.DebugMessageCallback = callback;
+#ifdef DILIGENT_DEBUG
+                EngineCI.EnableValidation = true;
+#endif
+                auto *pFactoryVk = GetEngineFactoryVk();
+                pFactoryVk->CreateDeviceAndContextsVk(EngineCI, &device,
+                    &immediateContext);
+
+                if (!swapChain && hWnd != nullptr) {
+                    DE::Win32NativeWindow window{ hWnd };
+                    pFactoryVk->CreateSwapChainVk(device, immediateContext,
+                        SCDesc, window, &swapChain);
+                }
+            } break;
+#endif
+
+            default:
+                throw std::logic_error("Unknown/unsupported device type");
+                break;
+        }
+    }
+
+    ~Engine() {
+        immediateContext->Flush();
+    }
+
+    void updateTarget(const float *clearColor) {
+        auto *pRTV = swapChain->GetCurrentBackBufferRTV();
+        auto *pDSV = swapChain->GetDepthBufferDSV();
+        if (sampleCount) {
+            pRTV = msaaColorRTV;
+            pDSV = msaaDepthDSV;
+        }
+
+        immediateContext->SetRenderTargets(
+            1, &pRTV, pDSV, DE::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+        // Clear the back buffer
+        // Let the engine perform required state transitions
+        immediateContext->ClearRenderTarget(
+            pRTV, clearColor, DE::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        immediateContext->ClearDepthStencil(
+            pDSV, DE::CLEAR_DEPTH_FLAG | DE::CLEAR_STENCIL_FLAG, 1.0f, 0,
+            DE::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    }
+
+    void resetRenderTarget() {
+        if (sampleCount == 1)
+            return;
+
+        const auto &SCDesc = swapChain->GetDesc();
+        // Create window-size multi-sampled offscreen render target
+        DE::TextureDesc colTexDesc = {};
+        colTexDesc.Name = "Color RTV";
+        colTexDesc.Type = DE::RESOURCE_DIM_TEX_2D;
+        colTexDesc.BindFlags = DE::BIND_RENDER_TARGET;
+        colTexDesc.Width = SCDesc.Width;
+        colTexDesc.Height = SCDesc.Height;
+        colTexDesc.MipLevels = 1;
+        colTexDesc.Format = SCDesc.ColorBufferFormat;
+        bool needSRGBConversion = device->GetDeviceCaps().IsD3DDevice() &&
+            (colTexDesc.Format == DE::TEX_FORMAT_RGBA8_UNORM_SRGB ||
+            colTexDesc.Format == DE::TEX_FORMAT_BGRA8_UNORM_SRGB);
+        if (needSRGBConversion) {
+            // Internally Direct3D swap chain images are not SRGB, and
+            // ResolveSubresource requires source and destination formats to
+            // match exactly or be typeless. So we will have to create a
+            // typeless texture and use SRGB render target view with it.
+            colTexDesc.Format =
+                colTexDesc.Format == DE::TEX_FORMAT_RGBA8_UNORM_SRGB ?
+                DE::TEX_FORMAT_RGBA8_TYPELESS :
+                DE::TEX_FORMAT_BGRA8_TYPELESS;
+        }
+
+        // Set the desired number of samples
+        colTexDesc.SampleCount = sampleCount;
+        // Define optimal clear value
+        float col[4] = { 0.3f, 0.3f, 0.32f, 1.0f };
+        memcpy(colTexDesc.ClearValue.Color, col, sizeof(col));
+        colTexDesc.ClearValue.Format = SCDesc.ColorBufferFormat;
+        DE::RefCntAutoPtr<DE::ITexture> pColor;
+        device->CreateTexture(colTexDesc, nullptr, &pColor);
+
+        // Store the render target view
+        msaaColorRTV.Release();
+        if (needSRGBConversion) {
+            DE::TextureViewDesc RTVDesc;
+            RTVDesc.ViewType = DE::TEXTURE_VIEW_RENDER_TARGET;
+            RTVDesc.Format = SCDesc.ColorBufferFormat;
+            pColor->CreateView(RTVDesc, &msaaColorRTV);
+        }
+        else {
+            msaaColorRTV =
+                pColor->GetDefaultView(DE::TEXTURE_VIEW_RENDER_TARGET);
+        }
+
+        // Create window-size multi-sampled depth buffer
+        DE::TextureDesc depthDesc = colTexDesc;
+        depthDesc.Name = "depth DSV";
+        depthDesc.Format = SCDesc.DepthBufferFormat;
+        depthDesc.BindFlags = DE::BIND_DEPTH_STENCIL;
+        // Define optimal clear value
+        depthDesc.ClearValue.Format = depthDesc.Format;
+
+        DE::RefCntAutoPtr<DE::ITexture> pDepth;
+        device->CreateTexture(depthDesc, nullptr, &pDepth);
+        // Store the depth-stencil view
+        msaaDepthDSV = pDepth->GetDefaultView(DE::TEXTURE_VIEW_DEPTH_STENCIL);
+    }
+
+    DE::RefCntAutoPtr<DE::IRenderDevice> device;
+    DE::RefCntAutoPtr<DE::IDeviceContext> immediateContext;
+    DE::RefCntAutoPtr<DE::ISwapChain> swapChain;
+    DE::Uint32 sampleCount = 1;
+    DE::RefCntAutoPtr<DE::ITextureView> msaaColorRTV;
+    DE::RefCntAutoPtr<DE::ITextureView> msaaDepthDSV;
+};
+
+std::unique_ptr<Engine> gEngine;
+
 class GUI final : public Screen {
 public:
     GUI(GLFWwindow *win, NVGcontext *nvg) : Screen() {
         inc_ref();
 
-        Screen::initialize(win, true, nvg);
+        Screen::initialize(win, false, nvg);
 
         Window *window = new Window(this, "Button demo");
         window->set_position(Vector2i(15, 15));
         window->set_layout(new GroupLayout());
+
+        m_label = new Label(window, "FPS", "sans");
+        m_begin = glfwGetTime();
+        m_cnt = 0;
 
         /* No need to store a pointer, the data structure will be automatically
            freed when the parent window is deleted */
@@ -194,7 +441,7 @@ public:
             image_view->set_image(m_images[0].first);
         image_view->center();
         m_current_image = 0;
-        
+
 
         img_panel->set_callback([this, image_view] (int i) {
             std::cout << "Selected item " << i << std::endl;
@@ -473,256 +720,47 @@ public:
         /* Animate the scrollbar */
         m_progress->set_value(std::fmod((float) glfwGetTime() / 10, 1.0f));
 
+        double ct = glfwGetTime();
+        ++m_cnt;
+        int FPS = static_cast<int>(m_cnt/(ct-m_begin));
+        m_label->set_caption("FPS: " + std::to_string(FPS));
+
         /* Draw the user interface */
         Screen::draw(ctx);
     }
 
+    virtual void clear() override {
+        const float clearCol[] = { 0.3f, 0.3f, 0.32f, 1.0f };
+        gEngine->updateTarget(clearCol);
+    }
+
+    virtual void draw_teardown() override {
+        if (gEngine->sampleCount > 1) {
+            // Resolve multi-sampled render taget into the current swap
+            // chain back buffer.
+            auto pCurrentBackBuffer =
+                gEngine->swapChain->GetCurrentBackBufferRTV()->GetTexture();
+
+            DE::ResolveTextureSubresourceAttribs RA = {};
+            RA.SrcTextureTransitionMode =
+                DE::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+            RA.DstTextureTransitionMode =
+                DE::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+            gEngine->immediateContext->ResolveTextureSubresource(
+                gEngine->msaaColorRTV->GetTexture(), pCurrentBackBuffer,
+                RA);
+        }
+
+        gEngine->swapChain->Present(0U);
+    }
+
 private:
     ProgressBar *m_progress;
+    Label *m_label;
+    double m_begin;
+    uint64_t m_cnt;
 };
 
-#include <nanovg_DE.hpp>
-
-#define ENGINE_DLL 1
-#define D3D11_SUPPORTED 1
-#define D3D12_SUPPORTED 1
-#define GL_SUPPORTED 1
-#define VULKAN_SUPPORTED 1
-
-#include <DiligentCore/Common/interface/FileWrapper.hpp>
-#include <DiligentCore/Graphics/GraphicsEngineD3D11/interface/EngineFactoryD3D11.h>
-#include <DiligentCore/Graphics/GraphicsEngineD3D12/interface/EngineFactoryD3D12.h>
-#include <DiligentCore/Graphics/GraphicsEngineOpenGL/interface/EngineFactoryOpenGL.h>
-#include <DiligentCore/Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h>
-#include <DiligentCore/Graphics/GraphicsTools/interface/DurationQueryHelper.hpp>
-#include <DiligentCore/Graphics/GraphicsTools/interface/ScreenCapture.hpp>
-#include <DiligentTools/TextureLoader/interface/Image.h>
-#include <chrono>
-#include <sstream>
-
-using Clock = std::chrono::high_resolution_clock;
-
-#ifdef _DEBUG
-#define DILIGENT_DEBUG
-#endif  // _DEBUG
-
-#define NANOGUI_MSAA
-
-static void callback(DE::DEBUG_MESSAGE_SEVERITY severity, const char *message,
-    const char *function, const char *file, int line) {
-    if (severity != DE::DEBUG_MESSAGE_SEVERITY_INFO) {
-        DebugBreak();
-    }
-    else
-        OutputDebugStringA(message);
-}
-
-class Engine final {
-public:
-    Engine(void *hWnd, DE::RENDER_DEVICE_TYPE type) {
-        DE::SwapChainDesc SCDesc;
-        SCDesc.DefaultDepthValue = 1.0f;
-        SCDesc.DefaultStencilValue = 0;
-        SCDesc.ColorBufferFormat = DE::TEX_FORMAT_RGBA8_UNORM;
-        SCDesc.DepthBufferFormat = DE::TEX_FORMAT_D24_UNORM_S8_UINT;
-        SCDesc.Usage = DE::SWAP_CHAIN_USAGE_RENDER_TARGET |
-            DE::SWAP_CHAIN_USAGE_COPY_SOURCE;
-
-        switch (type) {
-#if D3D11_SUPPORTED
-            case DE::RENDER_DEVICE_TYPE_D3D11:
-            {
-                DE::EngineD3D11CreateInfo EngineCI;
-                EngineCI.DebugMessageCallback = callback;
-#ifdef DILIGENT_DEBUG
-                EngineCI.DebugFlags |=
-                    DE::D3D11_DEBUG_FLAG_CREATE_DEBUG_DEVICE |
-                    DE::D3D11_DEBUG_FLAG_VERIFY_COMMITTED_SHADER_RESOURCES;
-#endif
-#if ENGINE_DLL
-                // Load the dll and import GetEngineFactoryD3D11() function
-                auto GetEngineFactoryD3D11 = DE::LoadGraphicsEngineD3D11();
-#endif
-                auto *pFactoryD3D11 = GetEngineFactoryD3D11();
-                pFactoryD3D11->CreateDeviceAndContextsD3D11(EngineCI, &device,
-                    &immediateContext);
-                DE::Win32NativeWindow window{ hWnd };
-                pFactoryD3D11->CreateSwapChainD3D11(
-                    device, immediateContext, SCDesc, DE::FullScreenModeDesc{},
-                    window, &swapChain);
-            } break;
-#endif
-
-#if D3D12_SUPPORTED
-            case DE::RENDER_DEVICE_TYPE_D3D12:
-            {
-#if ENGINE_DLL
-                // Load the dll and import GetEngineFactoryD3D12() function
-                auto GetEngineFactoryD3D12 = DE::LoadGraphicsEngineD3D12();
-#endif
-                DE::EngineD3D12CreateInfo EngineCI;
-                EngineCI.DebugMessageCallback = callback;
-#ifdef DILIGENT_DEBUG
-                EngineCI.EnableDebugLayer = true;
-#endif
-                auto *pFactoryD3D12 = GetEngineFactoryD3D12();
-                pFactoryD3D12->CreateDeviceAndContextsD3D12(EngineCI, &device,
-                    &immediateContext);
-                DE::Win32NativeWindow window{ hWnd };
-                pFactoryD3D12->CreateSwapChainD3D12(
-                    device, immediateContext, SCDesc, DE::FullScreenModeDesc{},
-                    window, &swapChain);
-            } break;
-#endif
-
-#if GL_SUPPORTED
-            case DE::RENDER_DEVICE_TYPE_GL:
-            {
-
-#if EXPLICITLY_LOAD_ENGINE_GL_DLL
-                // Load the dll and import GetEngineFactoryOpenGL() function
-                auto GetEngineFactoryOpenGL = DE::LoadGraphicsEngineOpenGL();
-#endif
-                auto *pFactoryOpenGL = GetEngineFactoryOpenGL();
-
-                DE::EngineGLCreateInfo EngineCI;
-                EngineCI.Window.hWnd = hWnd;
-                EngineCI.DebugMessageCallback = callback;
-#ifdef DILIGENT_DEBUG
-                EngineCI.CreateDebugContext = true;
-#endif
-                pFactoryOpenGL->CreateDeviceAndSwapChainGL(
-                    EngineCI, &device, &immediateContext, SCDesc, &swapChain);
-            } break;
-#endif
-
-#if VULKAN_SUPPORTED
-            case DE::RENDER_DEVICE_TYPE_VULKAN:
-            {
-#if EXPLICITLY_LOAD_ENGINE_VK_DLL
-                // Load the dll and import GetEngineFactoryVk() function
-                auto GetEngineFactoryVk = DE::LoadGraphicsEngineVk();
-#endif
-                DE::EngineVkCreateInfo EngineCI;
-                EngineCI.DebugMessageCallback = callback;
-#ifdef DILIGENT_DEBUG
-                EngineCI.EnableValidation = true;
-#endif
-                auto *pFactoryVk = GetEngineFactoryVk();
-                pFactoryVk->CreateDeviceAndContextsVk(EngineCI, &device,
-                    &immediateContext);
-
-                if (!swapChain && hWnd != nullptr) {
-                    DE::Win32NativeWindow window{ hWnd };
-                    pFactoryVk->CreateSwapChainVk(device, immediateContext,
-                        SCDesc, window, &swapChain);
-                }
-            } break;
-#endif
-
-            default:
-                throw std::logic_error("Unknown/unsupported device type");
-                break;
-        }
-    }
-
-    ~Engine() {
-        immediateContext->Flush();
-    }
-
-    void updateTarget(const float *clearColor) {
-        auto *pRTV = swapChain->GetCurrentBackBufferRTV();
-        auto *pDSV = swapChain->GetDepthBufferDSV();
-        if (sampleCount) {
-            pRTV = msaaColorRTV;
-            pDSV = msaaDepthDSV;
-        }
-
-        immediateContext->SetRenderTargets(
-            1, &pRTV, pDSV, DE::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-        // Clear the back buffer
-        // Let the engine perform required state transitions
-        immediateContext->ClearRenderTarget(
-            pRTV, clearColor, DE::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        immediateContext->ClearDepthStencil(
-            pDSV, DE::CLEAR_DEPTH_FLAG | DE::CLEAR_STENCIL_FLAG, 1.0f, 0,
-            DE::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    }
-
-    void resetRenderTarget() {
-        if (sampleCount == 1)
-            return;
-
-        const auto &SCDesc = swapChain->GetDesc();
-        // Create window-size multi-sampled offscreen render target
-        DE::TextureDesc colTexDesc = {};
-        colTexDesc.Name = "Color RTV";
-        colTexDesc.Type = DE::RESOURCE_DIM_TEX_2D;
-        colTexDesc.BindFlags = DE::BIND_RENDER_TARGET;
-        colTexDesc.Width = SCDesc.Width;
-        colTexDesc.Height = SCDesc.Height;
-        colTexDesc.MipLevels = 1;
-        colTexDesc.Format = SCDesc.ColorBufferFormat;
-        bool needSRGBConversion = device->GetDeviceCaps().IsD3DDevice() &&
-            (colTexDesc.Format == DE::TEX_FORMAT_RGBA8_UNORM_SRGB ||
-            colTexDesc.Format == DE::TEX_FORMAT_BGRA8_UNORM_SRGB);
-        if (needSRGBConversion) {
-            // Internally Direct3D swap chain images are not SRGB, and
-            // ResolveSubresource requires source and destination formats to
-            // match exactly or be typeless. So we will have to create a
-            // typeless texture and use SRGB render target view with it.
-            colTexDesc.Format =
-                colTexDesc.Format == DE::TEX_FORMAT_RGBA8_UNORM_SRGB ?
-                DE::TEX_FORMAT_RGBA8_TYPELESS :
-                DE::TEX_FORMAT_BGRA8_TYPELESS;
-        }
-
-        // Set the desired number of samples
-        colTexDesc.SampleCount = sampleCount;
-        // Define optimal clear value
-        float col[4] = { 0.3f, 0.3f, 0.32f, 1.0f };
-        memcpy(colTexDesc.ClearValue.Color, col, sizeof(col));
-        colTexDesc.ClearValue.Format = SCDesc.ColorBufferFormat;
-        DE::RefCntAutoPtr<DE::ITexture> pColor;
-        device->CreateTexture(colTexDesc, nullptr, &pColor);
-
-        // Store the render target view
-        msaaColorRTV.Release();
-        if (needSRGBConversion) {
-            DE::TextureViewDesc RTVDesc;
-            RTVDesc.ViewType = DE::TEXTURE_VIEW_RENDER_TARGET;
-            RTVDesc.Format = SCDesc.ColorBufferFormat;
-            pColor->CreateView(RTVDesc, &msaaColorRTV);
-        }
-        else {
-            msaaColorRTV =
-                pColor->GetDefaultView(DE::TEXTURE_VIEW_RENDER_TARGET);
-        }
-
-        // Create window-size multi-sampled depth buffer
-        DE::TextureDesc depthDesc = colTexDesc;
-        depthDesc.Name = "depth DSV";
-        depthDesc.Format = SCDesc.DepthBufferFormat;
-        depthDesc.BindFlags = DE::BIND_DEPTH_STENCIL;
-        // Define optimal clear value
-        depthDesc.ClearValue.Format = depthDesc.Format;
-
-        DE::RefCntAutoPtr<DE::ITexture> pDepth;
-        device->CreateTexture(depthDesc, nullptr, &pDepth);
-        // Store the depth-stencil view
-        msaaDepthDSV = pDepth->GetDefaultView(DE::TEXTURE_VIEW_DEPTH_STENCIL);
-    }
-
-    DE::RefCntAutoPtr<DE::IRenderDevice> device;
-    DE::RefCntAutoPtr<DE::IDeviceContext> immediateContext;
-    DE::RefCntAutoPtr<DE::ISwapChain> swapChain;
-    DE::Uint32 sampleCount = 1;
-    DE::RefCntAutoPtr<DE::ITextureView> msaaColorRTV;
-    DE::RefCntAutoPtr<DE::ITextureView> msaaDepthDSV;
-};
-
-std::unique_ptr<Engine> gEngine;
 
 #ifdef D3D11_SUPPORTED
 #include <d3d11.h>
@@ -779,34 +817,35 @@ void glfwMouseButtonCallback(GLFWwindow *w, int button, int action, int modifier
 }
 
 void glfwKeyCallback(GLFWwindow *w, int key, int scancode, int action, int mods) {
-        gGUI->key_callback_event(key, scancode, action, mods);
+    gGUI->key_callback_event(key, scancode, action, mods);
 }
 
 void glfwCharCallback(GLFWwindow *w, unsigned int codepoint) {
-        gGUI->char_callback_event(codepoint);
+    gGUI->char_callback_event(codepoint);
 }
 
 void glfwDropCallback(GLFWwindow *w, int count, const char **filenames) {
-        gGUI->drop_callback_event(count, filenames);
+    gGUI->drop_callback_event(count, filenames);
 }
 
 void glfwScrollCallback(GLFWwindow *w, double x, double y) {
-        gGUI->scroll_callback_event(x, y);
+    gGUI->scroll_callback_event(x, y);
 }
 
 /* React to framebuffer size events -- includes window
    size events and also catches things like dragging
    a window from a Retina-capable screen to a normal
    screen on Mac OS X */
-void glfwFramebufferSizeCallback (GLFWwindow *w, int width, int height) {
-        gEngine->swapChain->Resize(width, height);
-        gGUI->resize_callback_event(width, height);
+void glfwFramebufferSizeCallback(GLFWwindow *w, int width, int height) {
+    gEngine->swapChain->Resize(width, height);
+    gEngine->resetRenderTarget();
+    gGUI->resize_callback_event(width, height);
 }
 
 // notify when the screen has lost focus (e.g. gGUIlication switch)
 void glfwWindowFocusCallback(GLFWwindow *w, int focused) {
         // focus_event: 0 when false, 1 when true
-        gGUI->focus_event(focused != 0);
+    gGUI->focus_event(focused != 0);
 }
 
 int main(int /* argc */, char ** /* argv */) {
@@ -830,7 +869,7 @@ int main(int /* argc */, char ** /* argv */) {
         auto window = glfwCreateWindow(1024, 768, "NanoGUI Test", nullptr, nullptr);
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 
-        gEngine = std::make_unique<Engine>(glfwGetWin32Window(window), DE::RENDER_DEVICE_TYPE_VULKAN);
+        gEngine = std::make_unique<Engine>(glfwGetWin32Window(window), DE::RENDER_DEVICE_TYPE_D3D12);
 
         auto &&SDesc = gEngine->swapChain->GetDesc();
 
@@ -868,51 +907,32 @@ int main(int /* argc */, char ** /* argv */) {
             gGUI = new GUI(window, nvg);
 
             glfwSetCursorPosCallback(window, glfwCursorPosCallback);
-            glfwSetMouseButtonCallback(window,glfwMouseButtonCallback);
-            glfwSetKeyCallback(window,glfwKeyCallback);
-            glfwSetCharCallback(window,glfwCharCallback);
-            glfwSetDropCallback(window,glfwDropCallback);
-            glfwSetScrollCallback(window,glfwScrollCallback);
+            glfwSetMouseButtonCallback(window, glfwMouseButtonCallback);
+            glfwSetKeyCallback(window, glfwKeyCallback);
+            glfwSetCharCallback(window, glfwCharCallback);
+            glfwSetDropCallback(window, glfwDropCallback);
+            glfwSetScrollCallback(window, glfwScrollCallback);
 
             /* React to framebuffer size events -- includes window
                size events and also catches things like dragging
                a window from a Retina-capable screen to a normal
                screen on Mac OS X */
-            glfwSetFramebufferSizeCallback(window,glfwFramebufferSizeCallback);
+            glfwSetFramebufferSizeCallback(window, glfwFramebufferSizeCallback);
 
             // notify when the screen has lost focus (e.g. application switch)
-            glfwSetWindowFocusCallback(window,glfwWindowFocusCallback);
+            glfwSetWindowFocusCallback(window, glfwWindowFocusCallback);
 
 
             gGUI->dec_ref();
             gGUI->set_visible(true);
 
             while (!glfwWindowShouldClose(window)) {
+                gGUI->redraw();
+                gGUI->draw_all();
                 glfwPollEvents();
-                const float clearCol[] = { 0.3f, 0.3f, 0.32f, 1.0f };
-                gEngine->updateTarget(clearCol);
-
-                gGUI->draw_setup();
-                gGUI->draw_widgets();
-
-                if (gEngine->sampleCount > 1) {
-                    // Resolve multi-sampled render taget into the current swap
-                    // chain back buffer.
-                    auto pCurrentBackBuffer =
-                        gEngine->swapChain->GetCurrentBackBufferRTV()->GetTexture();
-
-                    DE::ResolveTextureSubresourceAttribs RA = {};
-                    RA.SrcTextureTransitionMode =
-                        DE::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
-                    RA.DstTextureTransitionMode =
-                        DE::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
-                    gEngine->immediateContext->ResolveTextureSubresource(
-                        gEngine->msaaColorRTV->GetTexture(), pCurrentBackBuffer,
-                        RA);
-                }
-
-                gEngine->swapChain->Present(0U);
             }
+
+            gGUI = nullptr;
         }
 
         nvgDeleteDE(nvg);
