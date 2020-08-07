@@ -98,6 +98,15 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <PostBuildEvent>
+      <Command>copy $(SolutionDir)../include/nanogui/*.h $(SolutionDir)install\include /y
+copy $(OutDir)nanogui.lib $(SolutionDir)install\lib\$(Configuration) /y
+copy $(OutDir)nanogui.pdb $(SolutionDir)install\lib\$(Configuration) /y
+</Command>
+    </PostBuildEvent>
+    <PostBuildEvent>
+      <Message>Copy files</Message>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -115,6 +124,15 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <PostBuildEvent>
+      <Command>copy $(SolutionDir)../include/nanogui/*.h $(SolutionDir)install\include /y
+copy $(OutDir)nanogui.lib $(SolutionDir)install\lib\$(Configuration) /y
+copy $(OutDir)nanogui.pdb $(SolutionDir)install\lib\$(Configuration) /y
+</Command>
+    </PostBuildEvent>
+    <PostBuildEvent>
+      <Message>Copy files</Message>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -128,6 +146,15 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <PostBuildEvent>
+      <Command>copy $(SolutionDir)../include/nanogui/*.h $(SolutionDir)install\include /y
+copy $(OutDir)nanogui.lib $(SolutionDir)install\lib\$(Configuration) /y
+copy $(OutDir)nanogui.pdb $(SolutionDir)install\lib\$(Configuration) /y
+</Command>
+    </PostBuildEvent>
+    <PostBuildEvent>
+      <Message>Copy files</Message>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -138,6 +165,10 @@
       <PreprocessorDefinitions>NANOGUI_USE_DE;NDEBUG;_CONSOLE;%(PreprocessorDefinitions);%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <OmitFramePointers>true</OmitFramePointers>
+      <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -145,6 +176,15 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <PostBuildEvent>
+      <Command>copy $(SolutionDir)..\include\nanogui\*.h $(SolutionDir)install\include\nanogui /y
+copy $(OutDir)nanogui.lib $(SolutionDir)install\lib\$(Configuration) /y
+copy $(OutDir)nanogui.pdb $(SolutionDir)install\lib\$(Configuration) /y
+</Command>
+    </PostBuildEvent>
+    <PostBuildEvent>
+      <Message>Copy files</Message>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\nanogui\button.h" />

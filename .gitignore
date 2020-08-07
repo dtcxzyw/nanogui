@@ -52,3 +52,4 @@ nanogui/example1/x64
 *.user
 src/nanogui_resources.h
 src/nanogui_resources.cpp
+nanogui/install
