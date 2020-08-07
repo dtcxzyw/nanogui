@@ -264,7 +264,7 @@ load_image_directory(NVGcontext *ctx, const std::string &path) {
     while ((ep = readdir(dp))) {
         const char *fname = ep->d_name;
 #else
-    WIN32_FIND_DATA ffd;
+    WIN32_FIND_DATAA ffd;
     std::string search_path = path + "/*.*";
     HANDLE handle = FindFirstFileA(search_path.c_str(), &ffd);
     if (handle == INVALID_HANDLE_VALUE)
@@ -305,7 +305,7 @@ std::vector<std::string> file_dialog(const std::vector<std::pair<std::string, st
 #if defined(EMSCRIPTEN)
     throw std::runtime_error("Opening files is not supported when NanoGUI is compiled via Emscripten");
 #elif defined(_WIN32)
-    OPENFILENAME ofn;
+    OPENFILENAMEA ofn;
     ZeroMemory(&ofn, sizeof(OPENFILENAME));
     ofn.lStructSize = sizeof(OPENFILENAME);
     char tmp[FILE_DIALOG_MAX_BUFFER];

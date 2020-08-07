@@ -34,6 +34,7 @@
 #  elif defined(NANOGUI_USE_GLES) && NANOGUI_GLES_VERSION == 3
 #    define GLFW_INCLUDE_ES3
 #  elif defined(NANOGUI_USE_METAL)
+#  elif defined(NANOGUI_USE_DE)
 #  else
 #    error You must select a backend (OpenGL/GLES2/GLES3/Metal)
 #  endif

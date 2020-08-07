@@ -14,7 +14,7 @@
 #include <nanogui/theme.h>
 #include <nanogui/opengl.h>
 #include <nanogui/icons.h>
-#include <nanogui_resources.h>
+#include "nanogui_resources.h"
 
 NAMESPACE_BEGIN(nanogui)
 

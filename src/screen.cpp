@@ -53,6 +53,8 @@
 #  include "opengl_check.h"
 #elif defined(NANOGUI_USE_METAL)
 #  include <nanovg_mtl.h>
+#elif defined(NANOGUI_USE_DE)
+#  include <nanovg_DE.hpp>
 #endif
 
 #if defined(__APPLE__)
@@ -203,6 +205,9 @@ Screen::Screen(const Vector2i &size, const std::string &caption, bool resizable,
 #elif defined(NANOGUI_USE_METAL)
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     m_stencil_buffer = stencil_buffer = false;
+#elif defined(NANOGUI_USE_DE)
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    m_stencil_buffer = stencil_buffer = true;
 #else
 #  error Did not select a graphics API!
 #endif

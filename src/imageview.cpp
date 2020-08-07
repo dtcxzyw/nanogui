@@ -15,7 +15,7 @@
 #include <nanogui/texture.h>
 #include <nanogui/screen.h>
 #include <nanogui/opengl.h>
-#include <nanogui_resources.h>
+#include "nanogui_resources.h"
 
 NAMESPACE_BEGIN(nanogui)
 
@@ -26,8 +26,8 @@ ImageView::ImageView(Widget *parent) : Canvas(parent, 1, false, false, false) {
         render_pass(),
         /* An identifying name */
         "a_simple_shader",
-        NANOGUI_SHADER(imageview_vertex),
-        NANOGUI_SHADER(imageview_fragment),
+        reinterpret_cast<const char*>(imageview_vertex_gl),
+        reinterpret_cast<const char*>(imageview_fragment_gl),
         Shader::BlendMode::AlphaBlend
     );
 

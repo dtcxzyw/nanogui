@@ -9,11 +9,11 @@ if (POLICY CMP0068)
   cmake_policy(SET CMP0068 NEW) # RPATH settings on macOS don't affect install_name.
 endif()
 
-if (NOT IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/ext/glfw/src")
-  message(FATAL_ERROR "The NanoGUI dependency repositories (GLFW, etc.) are missing! "
-    "You probably did not clone the project with --recursive. It is possible to recover "
-    "by calling \"git submodule update --init --recursive\"")
-endif()
+#if (NOT IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/ext/glfw/src")
+#  message(FATAL_ERROR "The NanoGUI dependency repositories (GLFW, etc.) are missing! "
+#    "You probably did not clone the project with --recursive. It is possible to recover "
+#    "by calling \"git submodule update --init --recursive\"")
+#endif()
 
 if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   message(STATUS "Setting build type to 'Release' as none was specified.")
@@ -295,14 +295,14 @@ if (NANOGUI_BUILD_GLFW)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-deprecated-declarations")
   endif()
 
-  add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/ext/glfw"  "ext_build/glfw")
+  #add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/ext/glfw"  "ext_build/glfw")
 
   # Two targets have now been defined: `glfw_objects`, which will be merged into
   # NanoGUI at the end, and `glfw`.  The `glfw` target is the library itself
   # (e.g., libglfw.so), but can be skipped as we do not need to link against it
   # (because we merge `glfw_objects` into NanoGUI).  Skipping is required for
   # XCode, but preferable for all build systems (reduces build artifacts).
-  set_target_properties(glfw PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BUILD 1)
+  #set_target_properties(glfw PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BUILD 1)
 
   mark_as_advanced(
     GLFW_BUILD_DOCS GLFW_BUILD_EXAMPLES GLFW_BUILD_INSTALL GLFW_BUILD_TESTS
@@ -318,8 +318,8 @@ if (NANOGUI_BUILD_GLAD)
    "${CMAKE_CURRENT_SOURCE_DIR}/ext/glad/include/glad/glad.h"
    "${CMAKE_CURRENT_SOURCE_DIR}/ext/glad/include/KHR/khrplatform.h")
   if (MSVC)
-    set_source_files_properties("${CMAKE_CURRENT_SOURCE_DIR}/ext/glad/src/glad.c"
-      PROPERTIES COMPILE_FLAGS "/wd4055 ")
+    #set_source_files_properties("${CMAKE_CURRENT_SOURCE_DIR}/ext/glad/src/glad.c"
+    #  PROPERTIES COMPILE_FLAGS "/wd4055 ")
   endif()
   include_directories(ext/glad/include)
   list(APPEND NANOGUI_EXTRA_DEFS -DNANOGUI_GLAD)
@@ -462,10 +462,10 @@ add_definitions(${NANOGUI_EXTRA_DEFS})
 # Compile main NanoGUI library
 add_library(nanogui-obj OBJECT
   # Merge NanoVG into the NanoGUI library
-  ext/nanovg/src/nanovg.c
-  ext/nanovg/src/stb_image.h
+  #ext/nanovg/src/nanovg.c
+  #ext/nanovg/src/stb_image.h
   # Merge GLAD into the NanoGUI library (only if needed)
-  ${LIBNANOGUI_EXTRA_SOURCE}
+  #${LIBNANOGUI_EXTRA_SOURCE}
   # Fonts etc.
   nanogui_resources.cpp
   include/nanogui/common.h src/common.cpp

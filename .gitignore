@@ -13,7 +13,7 @@ build.ninja
 rules.ninja
 Makefile
 bin2c
-example[1-9]
+#example[1-9]
 example[1-9].bc
 example[1-9].wasm
 example[1-9].js
@@ -46,4 +46,9 @@ docs/api
 resources/nanogui-entypo
 
 nanogui/.vs
+nanogui/x64
+nanogui/nanogui/x64
+nanogui/example1/x64
 *.user
+src/nanogui_resources.h
+src/nanogui_resources.cpp
