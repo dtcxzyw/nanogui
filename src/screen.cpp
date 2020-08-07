@@ -179,7 +179,7 @@ Screen::Screen()
 #endif
 }
 
-Screen::Screen(const Vector2i &size, const std::string &caption, bool resizable,
+Screen::Screen(const Vector2i &size, const std::string &caption, NVGcontext *context , bool resizable,
                bool fullscreen, bool depth_buffer, bool stencil_buffer,
                bool float_buffer, unsigned int gl_major, unsigned int gl_minor)
     : Widget(nullptr), m_glfw_window(nullptr), m_nvg_context(nullptr),
@@ -429,7 +429,7 @@ Screen::Screen(const Vector2i &size, const std::string &caption, bool resizable,
             s->focus_event(focused != 0);
         }
     );
-    initialize(m_glfw_window, true);
+    initialize(m_glfw_window, true,context);
 
 #if defined(NANOGUI_USE_METAL)
     if (depth_buffer) {
@@ -448,7 +448,7 @@ Screen::Screen(const Vector2i &size, const std::string &caption, bool resizable,
 #endif
 }
 
-void Screen::initialize(GLFWwindow *window, bool shutdown_glfw) {
+void Screen::initialize(GLFWwindow *window, bool shutdown_glfw, NVGcontext *context) {
     m_glfw_window = window;
     m_shutdown_glfw = shutdown_glfw;
     glfwGetWindowSize(m_glfw_window, &m_size[0], &m_size[1]);
@@ -508,6 +508,8 @@ void Screen::initialize(GLFWwindow *window, bool shutdown_glfw) {
     m_nvg_context = nvgCreateMTL(metal_layer(),
                                  metal_command_queue(),
                                  flags | NVG_TRIPLE_BUFFER);
+#elif defined(NANOGUI_USE_DE)
+    m_nvg_context=context;
 #endif
 
     if (!m_nvg_context)

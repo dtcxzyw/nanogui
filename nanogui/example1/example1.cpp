@@ -48,10 +48,13 @@
 
 using namespace nanogui;
 
-class ExampleApplication : public Screen {
+class GUI final : public Screen {
 public:
-    ExampleApplication() : Screen(Vector2i(1024, 768), "NanoGUI Test") {
+    GUI(GLFWwindow *win, NVGcontext *nvg) : Screen() {
         inc_ref();
+
+        Screen::initialize(win, true, nvg);
+
         Window *window = new Window(this, "Button demo");
         window->set_position(Vector2i(15, 15));
         window->set_layout(new GroupLayout());
@@ -164,6 +167,7 @@ public:
         image_window->set_position(Vector2i(710, 15));
         image_window->set_layout(new GroupLayout(3));
 
+        /*
         // Create a Texture instance for each object
         for (auto &icon : icons) {
             Vector2i size;
@@ -190,13 +194,15 @@ public:
             image_view->set_image(m_images[0].first);
         image_view->center();
         m_current_image = 0;
+        
 
         img_panel->set_callback([this, image_view] (int i) {
             std::cout << "Selected item " << i << std::endl;
             image_view->set_image(m_images[i].first);
             m_current_image = i;
-            });
+            });*/
 
+            /*
         image_view->set_pixel_callback(
             [this] (const Vector2i &index, char **out, size_t size) {
                 const Texture *texture = m_images[m_current_image].first.get();
@@ -207,6 +213,7 @@ public:
                 }
             }
         );
+        */
 
         new Label(window, "File dialog", "sans-bold");
         tools = new Widget(window);
@@ -450,84 +457,6 @@ public:
            eliminates most of the tedious and error-prone shader and buffer
            object management.
         */
-
-        m_render_pass = new RenderPass({ this });
-        m_render_pass->set_clear_color(0, Color(0.3f, 0.3f, 0.32f, 1.f));
-
-        m_shader = new Shader(
-            m_render_pass,
-
-            /* An identifying name */
-            "a_simple_shader",
-
-#if defined(NANOGUI_USE_OPENGL)
-            R"(/* Vertex shader */
-            #version 330
-            uniform mat4 mvp;
-            in vec3 position;
-            void main() {
-                gl_Position = mvp * vec4(position, 1.0);
-            })",
-
-            /* Fragment shader */
-            R"(#version 330
-            out vec4 color;
-            uniform float intensity;
-            void main() {
-                color = vec4(vec3(intensity), 1.0);
-            })"
-#elif defined(NANOGUI_USE_GLES)
-            R"(/* Vertex shader */
-            precision highp float;
-            uniform mat4 mvp;
-            attribute vec3 position;
-            void main() {
-                gl_Position = mvp * vec4(position, 1.0);
-            })",
-
-            /* Fragment shader */
-            R"(precision highp float;
-            uniform float intensity;
-            void main() {
-                gl_FragColor = vec4(vec3(intensity), 1.0);
-            })"
-#elif defined(NANOGUI_USE_METAL)
-            R"(using namespace metal;
-            struct VertexOut {
-                float4 position [[position]];
-            };
-
-            vertex VertexOut vertex_main(const device packed_float3 *position,
-                                         constant float4x4 &mvp,
-                                         uint id [[vertex_id]]) {
-                VertexOut vert;
-                vert.position = mvp * float4(position[id], 1.f);
-                return vert;
-            })",
-
-            /* Fragment shader */
-            R"(using namespace metal;
-            fragment float4 fragment_main(const constant float &intensity) {
-                return float4(intensity);
-            })"
-#endif
-        );
-
-        uint32_t indices[3 * 2] = {
-            0, 1, 2,
-            2, 3, 0
-        };
-
-        float positions[3 * 4] = {
-            -1.f, -1.f, 0.f,
-            1.f, -1.f, 0.f,
-            1.f, 1.f, 0.f,
-            -1.f, 1.f, 0.f
-        };
-
-        m_shader->set_buffer("indices", VariableType::UInt32, { 3 * 2 }, indices);
-        m_shader->set_buffer("position", VariableType::Float32, { 4, 3 }, positions);
-        m_shader->set_uniform("intensity", 0.5f);
     }
 
     virtual bool keyboard_event(int key, int scancode, int action, int modifiers) {
@@ -548,46 +477,448 @@ public:
         Screen::draw(ctx);
     }
 
-    virtual void draw_contents() {
-        Matrix4f mvp = Matrix4f::scale(Vector3f(
-            (float) m_size.y() / (float) m_size.x() * 0.25f, 0.25f, 0.25f)) *
-            Matrix4f::rotate(Vector3f(0, 0, 1), (float) glfwGetTime());
-
-        m_shader->set_uniform("mvp", mvp);
-
-        m_render_pass->resize(framebuffer_size());
-        m_render_pass->begin();
-
-        m_shader->begin();
-        m_shader->draw_array(Shader::PrimitiveType::Triangle, 0, 6, true);
-        m_shader->end();
-
-        m_render_pass->end();
-    }
 private:
     ProgressBar *m_progress;
-    ref<Shader> m_shader;
-    ref<RenderPass> m_render_pass;
-
-    using ImageHolder = std::unique_ptr<uint8_t[], void(*)(void *)>;
-    std::vector<std::pair<ref<Texture>, ImageHolder>> m_images;
-    int m_current_image;
 };
+
+#include <nanovg_DE.hpp>
+
+#define ENGINE_DLL 1
+#define D3D11_SUPPORTED 1
+#define D3D12_SUPPORTED 1
+#define GL_SUPPORTED 1
+#define VULKAN_SUPPORTED 1
+
+#include <DiligentCore/Common/interface/FileWrapper.hpp>
+#include <DiligentCore/Graphics/GraphicsEngineD3D11/interface/EngineFactoryD3D11.h>
+#include <DiligentCore/Graphics/GraphicsEngineD3D12/interface/EngineFactoryD3D12.h>
+#include <DiligentCore/Graphics/GraphicsEngineOpenGL/interface/EngineFactoryOpenGL.h>
+#include <DiligentCore/Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h>
+#include <DiligentCore/Graphics/GraphicsTools/interface/DurationQueryHelper.hpp>
+#include <DiligentCore/Graphics/GraphicsTools/interface/ScreenCapture.hpp>
+#include <DiligentTools/TextureLoader/interface/Image.h>
+#include <chrono>
+#include <sstream>
+
+using Clock = std::chrono::high_resolution_clock;
+
+#ifdef _DEBUG
+#define DILIGENT_DEBUG
+#endif  // _DEBUG
+
+#define NANOGUI_MSAA
+
+static void callback(DE::DEBUG_MESSAGE_SEVERITY severity, const char *message,
+    const char *function, const char *file, int line) {
+    if (severity != DE::DEBUG_MESSAGE_SEVERITY_INFO) {
+        DebugBreak();
+    }
+    else
+        OutputDebugStringA(message);
+}
+
+class Engine final {
+public:
+    Engine(void *hWnd, DE::RENDER_DEVICE_TYPE type) {
+        DE::SwapChainDesc SCDesc;
+        SCDesc.DefaultDepthValue = 1.0f;
+        SCDesc.DefaultStencilValue = 0;
+        SCDesc.ColorBufferFormat = DE::TEX_FORMAT_RGBA8_UNORM;
+        SCDesc.DepthBufferFormat = DE::TEX_FORMAT_D24_UNORM_S8_UINT;
+        SCDesc.Usage = DE::SWAP_CHAIN_USAGE_RENDER_TARGET |
+            DE::SWAP_CHAIN_USAGE_COPY_SOURCE;
+
+        switch (type) {
+#if D3D11_SUPPORTED
+            case DE::RENDER_DEVICE_TYPE_D3D11:
+            {
+                DE::EngineD3D11CreateInfo EngineCI;
+                EngineCI.DebugMessageCallback = callback;
+#ifdef DILIGENT_DEBUG
+                EngineCI.DebugFlags |=
+                    DE::D3D11_DEBUG_FLAG_CREATE_DEBUG_DEVICE |
+                    DE::D3D11_DEBUG_FLAG_VERIFY_COMMITTED_SHADER_RESOURCES;
+#endif
+#if ENGINE_DLL
+                // Load the dll and import GetEngineFactoryD3D11() function
+                auto GetEngineFactoryD3D11 = DE::LoadGraphicsEngineD3D11();
+#endif
+                auto *pFactoryD3D11 = GetEngineFactoryD3D11();
+                pFactoryD3D11->CreateDeviceAndContextsD3D11(EngineCI, &device,
+                    &immediateContext);
+                DE::Win32NativeWindow window{ hWnd };
+                pFactoryD3D11->CreateSwapChainD3D11(
+                    device, immediateContext, SCDesc, DE::FullScreenModeDesc{},
+                    window, &swapChain);
+            } break;
+#endif
+
+#if D3D12_SUPPORTED
+            case DE::RENDER_DEVICE_TYPE_D3D12:
+            {
+#if ENGINE_DLL
+                // Load the dll and import GetEngineFactoryD3D12() function
+                auto GetEngineFactoryD3D12 = DE::LoadGraphicsEngineD3D12();
+#endif
+                DE::EngineD3D12CreateInfo EngineCI;
+                EngineCI.DebugMessageCallback = callback;
+#ifdef DILIGENT_DEBUG
+                EngineCI.EnableDebugLayer = true;
+#endif
+                auto *pFactoryD3D12 = GetEngineFactoryD3D12();
+                pFactoryD3D12->CreateDeviceAndContextsD3D12(EngineCI, &device,
+                    &immediateContext);
+                DE::Win32NativeWindow window{ hWnd };
+                pFactoryD3D12->CreateSwapChainD3D12(
+                    device, immediateContext, SCDesc, DE::FullScreenModeDesc{},
+                    window, &swapChain);
+            } break;
+#endif
+
+#if GL_SUPPORTED
+            case DE::RENDER_DEVICE_TYPE_GL:
+            {
+
+#if EXPLICITLY_LOAD_ENGINE_GL_DLL
+                // Load the dll and import GetEngineFactoryOpenGL() function
+                auto GetEngineFactoryOpenGL = DE::LoadGraphicsEngineOpenGL();
+#endif
+                auto *pFactoryOpenGL = GetEngineFactoryOpenGL();
+
+                DE::EngineGLCreateInfo EngineCI;
+                EngineCI.Window.hWnd = hWnd;
+                EngineCI.DebugMessageCallback = callback;
+#ifdef DILIGENT_DEBUG
+                EngineCI.CreateDebugContext = true;
+#endif
+                pFactoryOpenGL->CreateDeviceAndSwapChainGL(
+                    EngineCI, &device, &immediateContext, SCDesc, &swapChain);
+            } break;
+#endif
+
+#if VULKAN_SUPPORTED
+            case DE::RENDER_DEVICE_TYPE_VULKAN:
+            {
+#if EXPLICITLY_LOAD_ENGINE_VK_DLL
+                // Load the dll and import GetEngineFactoryVk() function
+                auto GetEngineFactoryVk = DE::LoadGraphicsEngineVk();
+#endif
+                DE::EngineVkCreateInfo EngineCI;
+                EngineCI.DebugMessageCallback = callback;
+#ifdef DILIGENT_DEBUG
+                EngineCI.EnableValidation = true;
+#endif
+                auto *pFactoryVk = GetEngineFactoryVk();
+                pFactoryVk->CreateDeviceAndContextsVk(EngineCI, &device,
+                    &immediateContext);
+
+                if (!swapChain && hWnd != nullptr) {
+                    DE::Win32NativeWindow window{ hWnd };
+                    pFactoryVk->CreateSwapChainVk(device, immediateContext,
+                        SCDesc, window, &swapChain);
+                }
+            } break;
+#endif
+
+            default:
+                throw std::logic_error("Unknown/unsupported device type");
+                break;
+        }
+    }
+
+    ~Engine() {
+        immediateContext->Flush();
+    }
+
+    void updateTarget(const float *clearColor) {
+        auto *pRTV = swapChain->GetCurrentBackBufferRTV();
+        auto *pDSV = swapChain->GetDepthBufferDSV();
+        if (sampleCount) {
+            pRTV = msaaColorRTV;
+            pDSV = msaaDepthDSV;
+        }
+
+        immediateContext->SetRenderTargets(
+            1, &pRTV, pDSV, DE::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+        // Clear the back buffer
+        // Let the engine perform required state transitions
+        immediateContext->ClearRenderTarget(
+            pRTV, clearColor, DE::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        immediateContext->ClearDepthStencil(
+            pDSV, DE::CLEAR_DEPTH_FLAG | DE::CLEAR_STENCIL_FLAG, 1.0f, 0,
+            DE::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    }
+
+    void resetRenderTarget() {
+        if (sampleCount == 1)
+            return;
+
+        const auto &SCDesc = swapChain->GetDesc();
+        // Create window-size multi-sampled offscreen render target
+        DE::TextureDesc colTexDesc = {};
+        colTexDesc.Name = "Color RTV";
+        colTexDesc.Type = DE::RESOURCE_DIM_TEX_2D;
+        colTexDesc.BindFlags = DE::BIND_RENDER_TARGET;
+        colTexDesc.Width = SCDesc.Width;
+        colTexDesc.Height = SCDesc.Height;
+        colTexDesc.MipLevels = 1;
+        colTexDesc.Format = SCDesc.ColorBufferFormat;
+        bool needSRGBConversion = device->GetDeviceCaps().IsD3DDevice() &&
+            (colTexDesc.Format == DE::TEX_FORMAT_RGBA8_UNORM_SRGB ||
+            colTexDesc.Format == DE::TEX_FORMAT_BGRA8_UNORM_SRGB);
+        if (needSRGBConversion) {
+            // Internally Direct3D swap chain images are not SRGB, and
+            // ResolveSubresource requires source and destination formats to
+            // match exactly or be typeless. So we will have to create a
+            // typeless texture and use SRGB render target view with it.
+            colTexDesc.Format =
+                colTexDesc.Format == DE::TEX_FORMAT_RGBA8_UNORM_SRGB ?
+                DE::TEX_FORMAT_RGBA8_TYPELESS :
+                DE::TEX_FORMAT_BGRA8_TYPELESS;
+        }
+
+        // Set the desired number of samples
+        colTexDesc.SampleCount = sampleCount;
+        // Define optimal clear value
+        float col[4] = { 0.3f, 0.3f, 0.32f, 1.0f };
+        memcpy(colTexDesc.ClearValue.Color, col, sizeof(col));
+        colTexDesc.ClearValue.Format = SCDesc.ColorBufferFormat;
+        DE::RefCntAutoPtr<DE::ITexture> pColor;
+        device->CreateTexture(colTexDesc, nullptr, &pColor);
+
+        // Store the render target view
+        msaaColorRTV.Release();
+        if (needSRGBConversion) {
+            DE::TextureViewDesc RTVDesc;
+            RTVDesc.ViewType = DE::TEXTURE_VIEW_RENDER_TARGET;
+            RTVDesc.Format = SCDesc.ColorBufferFormat;
+            pColor->CreateView(RTVDesc, &msaaColorRTV);
+        }
+        else {
+            msaaColorRTV =
+                pColor->GetDefaultView(DE::TEXTURE_VIEW_RENDER_TARGET);
+        }
+
+        // Create window-size multi-sampled depth buffer
+        DE::TextureDesc depthDesc = colTexDesc;
+        depthDesc.Name = "depth DSV";
+        depthDesc.Format = SCDesc.DepthBufferFormat;
+        depthDesc.BindFlags = DE::BIND_DEPTH_STENCIL;
+        // Define optimal clear value
+        depthDesc.ClearValue.Format = depthDesc.Format;
+
+        DE::RefCntAutoPtr<DE::ITexture> pDepth;
+        device->CreateTexture(depthDesc, nullptr, &pDepth);
+        // Store the depth-stencil view
+        msaaDepthDSV = pDepth->GetDefaultView(DE::TEXTURE_VIEW_DEPTH_STENCIL);
+    }
+
+    DE::RefCntAutoPtr<DE::IRenderDevice> device;
+    DE::RefCntAutoPtr<DE::IDeviceContext> immediateContext;
+    DE::RefCntAutoPtr<DE::ISwapChain> swapChain;
+    DE::Uint32 sampleCount = 1;
+    DE::RefCntAutoPtr<DE::ITextureView> msaaColorRTV;
+    DE::RefCntAutoPtr<DE::ITextureView> msaaDepthDSV;
+};
+
+std::unique_ptr<Engine> gEngine;
+
+#ifdef D3D11_SUPPORTED
+#include <d3d11.h>
+#endif  // D3D11_SUPPORTED
+#ifdef D3D12_SUPPORTED
+#include <d3d12.h>
+#endif  // D3D12_SUPPORTED
+
+DE::Uint8 getQualityLevel() {
+    auto dev = gEngine->device->GetDeviceCaps().DevType;
+    void *nativeHandle = gEngine->swapChain->GetCurrentBackBufferRTV()
+        ->GetTexture()
+        ->GetNativeHandle();
+#ifdef D3D11_SUPPORTED
+    if (dev == DE::RENDER_DEVICE_TYPE_D3D11) {
+        auto res = reinterpret_cast<ID3D11Resource *>(nativeHandle);
+        ID3D11Device *device = nullptr;
+        res->GetDevice(&device);
+        UINT level = 0;
+        device->CheckMultisampleQualityLevels(DXGI_FORMAT_R8G8B8A8_UNORM,
+            gEngine->sampleCount, &level);
+        return static_cast<DE::Uint8>(level - 1);
+    }
+#endif  // D3D11_SUPPORTED
+#ifdef D3D12_SUPPORTED
+    if (dev == DE::RENDER_DEVICE_TYPE_D3D12) {
+        auto res = reinterpret_cast<ID3D12Resource *>(nativeHandle);
+        void *device = nullptr;
+        res->GetDevice(__uuidof(ID3D12Device), &device);
+        D3D12_FEATURE_DATA_MULTISAMPLE_QUALITY_LEVELS
+            data = {};
+        data.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+        data.SampleCount = gEngine->sampleCount;
+        data.Flags = D3D12_MULTISAMPLE_QUALITY_LEVELS_FLAG_NONE;
+        reinterpret_cast<ID3D12Device *>(device)->CheckFeatureSupport(
+            D3D12_FEATURE_MULTISAMPLE_QUALITY_LEVELS, &data, sizeof(data));
+        return static_cast<DE::Uint8>(data.NumQualityLevels - 1);
+    }
+#endif  // D3D12_SUPPORTED
+    return 0;
+}
+
+#  define GLFW_EXPOSE_NATIVE_WIN32
+#  include <GLFW/glfw3native.h>
+
+ref<GUI> gGUI;
+
+void glfwCursorPosCallback(GLFWwindow *w, double x, double y) {
+    gGUI->cursor_pos_callback_event(x, y);
+}
+
+void glfwMouseButtonCallback(GLFWwindow *w, int button, int action, int modifiers) {
+    gGUI->mouse_button_callback_event(button, action, modifiers);
+}
+
+void glfwKeyCallback(GLFWwindow *w, int key, int scancode, int action, int mods) {
+        gGUI->key_callback_event(key, scancode, action, mods);
+}
+
+void glfwCharCallback(GLFWwindow *w, unsigned int codepoint) {
+        gGUI->char_callback_event(codepoint);
+}
+
+void glfwDropCallback(GLFWwindow *w, int count, const char **filenames) {
+        gGUI->drop_callback_event(count, filenames);
+}
+
+void glfwScrollCallback(GLFWwindow *w, double x, double y) {
+        gGUI->scroll_callback_event(x, y);
+}
+
+/* React to framebuffer size events -- includes window
+   size events and also catches things like dragging
+   a window from a Retina-capable screen to a normal
+   screen on Mac OS X */
+void glfwFramebufferSizeCallback (GLFWwindow *w, int width, int height) {
+        gEngine->swapChain->Resize(width, height);
+        gGUI->resize_callback_event(width, height);
+}
+
+// notify when the screen has lost focus (e.g. gGUIlication switch)
+void glfwWindowFocusCallback(GLFWwindow *w, int focused) {
+        // focus_event: 0 when false, 1 when true
+        gGUI->focus_event(focused != 0);
+}
 
 int main(int /* argc */, char ** /* argv */) {
     try {
-        nanogui::init();
+        glfwSetErrorCallback(
+            [] (int error, const char *descr) {
+                if (error == GLFW_NOT_INITIALIZED)
+                    return; /* Ignore */
+                std::cerr << "GLFW error " << error << ": " << descr << std::endl;
+            }
+        );
+
+        if (!glfwInit())
+            throw std::runtime_error("Could not initialize GLFW!");
+
+        glfwSetTime(0);
+
+        glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+        glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
+        glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
+        auto window = glfwCreateWindow(1024, 768, "NanoGUI Test", nullptr, nullptr);
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+
+        gEngine = std::make_unique<Engine>(glfwGetWin32Window(window), DE::RENDER_DEVICE_TYPE_VULKAN);
+
+        auto &&SDesc = gEngine->swapChain->GetDesc();
+
+#ifdef NANOGUI_MSAA
+        const auto &colorFmtInfo =
+            gEngine->device->GetTextureFormatInfoExt(SDesc.ColorBufferFormat);
+        const auto &depthFmtInfo =
+            gEngine->device->GetTextureFormatInfoExt(SDesc.DepthBufferFormat);
+        DE::Uint32 supportedSampleCounts =
+            colorFmtInfo.SampleCounts & depthFmtInfo.SampleCounts;
+        while (supportedSampleCounts & (gEngine->sampleCount << 1))
+            gEngine->sampleCount <<= 1;
+#endif  // NANOGUI_MSAA
+
+        if (gEngine->sampleCount > 1)
+            gEngine->resetRenderTarget();
+
+        DE::SampleDesc msaa = {};
+        msaa.Count = gEngine->sampleCount;
+        msaa.Quality = getQualityLevel();
+
+        NVGcontext *nvg = nvgCreateDE(
+            gEngine->device, gEngine->immediateContext, msaa,
+            SDesc.ColorBufferFormat, SDesc.DepthBufferFormat,
+            static_cast<int>((msaa.Count == 1 ? NVGCreateFlags::NVG_ANTIALIAS : 0)
+            | NVG_ALLOW_INDIRECT_RENDERING
+            | NVGCreateFlags::NVG_STENCIL_STROKES
+#ifdef _DEBUG
+            | NVGCreateFlags::NVG_DEBUG
+#endif
+        ));
 
         /* scoped variables */
         {
-            ref<ExampleApplication> app = new ExampleApplication();
-            app->dec_ref();
-            app->draw_all();
-            app->set_visible(true);
-            nanogui::mainloop(1 / 60.f * 1000);
+            gGUI = new GUI(window, nvg);
+
+            glfwSetCursorPosCallback(window, glfwCursorPosCallback);
+            glfwSetMouseButtonCallback(window,glfwMouseButtonCallback);
+            glfwSetKeyCallback(window,glfwKeyCallback);
+            glfwSetCharCallback(window,glfwCharCallback);
+            glfwSetDropCallback(window,glfwDropCallback);
+            glfwSetScrollCallback(window,glfwScrollCallback);
+
+            /* React to framebuffer size events -- includes window
+               size events and also catches things like dragging
+               a window from a Retina-capable screen to a normal
+               screen on Mac OS X */
+            glfwSetFramebufferSizeCallback(window,glfwFramebufferSizeCallback);
+
+            // notify when the screen has lost focus (e.g. application switch)
+            glfwSetWindowFocusCallback(window,glfwWindowFocusCallback);
+
+
+            gGUI->dec_ref();
+            gGUI->set_visible(true);
+
+            while (!glfwWindowShouldClose(window)) {
+                glfwPollEvents();
+                const float clearCol[] = { 0.3f, 0.3f, 0.32f, 1.0f };
+                gEngine->updateTarget(clearCol);
+
+                gGUI->draw_setup();
+                gGUI->draw_widgets();
+
+                if (gEngine->sampleCount > 1) {
+                    // Resolve multi-sampled render taget into the current swap
+                    // chain back buffer.
+                    auto pCurrentBackBuffer =
+                        gEngine->swapChain->GetCurrentBackBufferRTV()->GetTexture();
+
+                    DE::ResolveTextureSubresourceAttribs RA = {};
+                    RA.SrcTextureTransitionMode =
+                        DE::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+                    RA.DstTextureTransitionMode =
+                        DE::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+                    gEngine->immediateContext->ResolveTextureSubresource(
+                        gEngine->msaaColorRTV->GetTexture(), pCurrentBackBuffer,
+                        RA);
+                }
+
+                gEngine->swapChain->Present(0U);
+            }
         }
 
-        nanogui::shutdown();
+        nvgDeleteDE(nvg);
+        gEngine.reset();
+        glfwDestroyWindow(window);
+        glfwTerminate();
     }
     catch (const std::exception &e) {
         std::string error_msg = std::string("Caught a fatal error: ") + std::string(e.what());

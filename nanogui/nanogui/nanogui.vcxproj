@@ -148,7 +148,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\nanogui\button.h" />
-    <ClInclude Include="..\..\include\nanogui\canvas.h" />
     <ClInclude Include="..\..\include\nanogui\checkbox.h" />
     <ClInclude Include="..\..\include\nanogui\colorpicker.h" />
     <ClInclude Include="..\..\include\nanogui\colorwheel.h" />
@@ -158,7 +157,6 @@
     <ClInclude Include="..\..\include\nanogui\graph.h" />
     <ClInclude Include="..\..\include\nanogui\icons.h" />
     <ClInclude Include="..\..\include\nanogui\imagepanel.h" />
-    <ClInclude Include="..\..\include\nanogui\imageview.h" />
     <ClInclude Include="..\..\include\nanogui\label.h" />
     <ClInclude Include="..\..\include\nanogui\layout.h" />
     <ClInclude Include="..\..\include\nanogui\messagedialog.h" />
@@ -177,7 +175,6 @@
     <ClInclude Include="..\..\include\nanogui\tabwidget.h" />
     <ClInclude Include="..\..\include\nanogui\textarea.h" />
     <ClInclude Include="..\..\include\nanogui\textbox.h" />
-    <ClInclude Include="..\..\include\nanogui\texture.h" />
     <ClInclude Include="..\..\include\nanogui\theme.h" />
     <ClInclude Include="..\..\include\nanogui\toolbutton.h" />
     <ClInclude Include="..\..\include\nanogui\traits.h" />
@@ -188,7 +185,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\button.cpp" />
-    <ClCompile Include="..\..\src\canvas.cpp" />
     <ClCompile Include="..\..\src\checkbox.cpp" />
     <ClCompile Include="..\..\src\colorpicker.cpp" />
     <ClCompile Include="..\..\src\colorwheel.cpp" />
@@ -196,7 +192,6 @@
     <ClCompile Include="..\..\src\common.cpp" />
     <ClCompile Include="..\..\src\graph.cpp" />
     <ClCompile Include="..\..\src\imagepanel.cpp" />
-    <ClCompile Include="..\..\src\imageview.cpp" />
     <ClCompile Include="..\..\src\label.cpp" />
     <ClCompile Include="..\..\src\layout.cpp" />
     <ClCompile Include="..\..\src\messagedialog.cpp" />
@@ -210,7 +205,6 @@
     <ClCompile Include="..\..\src\tabwidget.cpp" />
     <ClCompile Include="..\..\src\textarea.cpp" />
     <ClCompile Include="..\..\src\textbox.cpp" />
-    <ClCompile Include="..\..\src\texture.cpp" />
     <ClCompile Include="..\..\src\theme.cpp" />
     <ClCompile Include="..\..\src\traits.cpp" />
     <ClCompile Include="..\..\src\vscrollpanel.cpp" />

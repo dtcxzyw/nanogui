@@ -73,18 +73,22 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>../../include;$(DE_PATH)\include;$(NVG_PATH)\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(NVG_PATH)\lib;$(DE_PATH)\lib;../$(Platform)/$(Configuration);$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
     <IncludePath>../../include;$(DE_PATH)\include;$(NVG_PATH)\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(NVG_PATH)\lib;$(DE_PATH)\lib;../$(Platform)/$(Configuration);$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>../../include;$(DE_PATH)\include;$(NVG_PATH)\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(NVG_PATH)\lib;$(DE_PATH)\lib;../$(Platform)/$(Configuration);$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <IncludePath>../../include;$(DE_PATH)\include;$(NVG_PATH)\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(NVG_PATH)\lib;$(DE_PATH)\lib;../$(Platform)/$(Configuration);$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -92,10 +96,12 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NANOGUI_USE_DE;WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>$(Configuration)\nanovg.lib;DiligentCore\$(Configuration)\DiligentCore.lib;nanogui.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -106,12 +112,14 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NANOGUI_USE_DE;WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>$(Configuration)\nanovg.lib;DiligentCore\$(Configuration)\DiligentCore.lib;nanogui.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -120,10 +128,12 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NANOGUI_USE_DE;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>$(Configuration)\nanovg.lib;DiligentCore\$(Configuration)\DiligentCore.lib;nanogui.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -134,16 +144,23 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NANOGUI_USE_DE;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>$(Configuration)\nanovg.lib;DiligentCore\$(Configuration)\DiligentCore.lib;nanogui.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="example1.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\nanogui\nanogui.vcxproj">
+      <Project>{0cc372ae-b06e-473f-9b56-1f1638744854}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

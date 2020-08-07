@@ -18,9 +18,6 @@
     <ClInclude Include="..\..\include\nanogui\button.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\nanogui\canvas.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\include\nanogui\checkbox.h">
       <Filter>头文件</Filter>
     </ClInclude>
@@ -46,9 +43,6 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="..\..\include\nanogui\imagepanel.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\include\nanogui\imageview.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="..\..\include\nanogui\label.h">
@@ -105,9 +99,6 @@
     <ClInclude Include="..\..\include\nanogui\textbox.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\nanogui\texture.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\include\nanogui\theme.h">
       <Filter>头文件</Filter>
     </ClInclude>
@@ -134,9 +125,6 @@
     <ClCompile Include="..\..\src\button.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\canvas.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\checkbox.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
@@ -156,9 +144,6 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\imagepanel.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\imageview.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\label.cpp">
@@ -195,9 +180,6 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\textbox.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\texture.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\theme.cpp">

@@ -76,7 +76,7 @@ public:
      */
     Screen(
         const Vector2i &size,
-        const std::string &caption = "Unnamed",
+        const std::string &caption = "Unnamed",NVGcontext* context=nullptr,
         bool resizable = true,
         bool fullscreen = false,
         bool depth_buffer = true,
@@ -250,7 +250,7 @@ public:
     Screen();
 
     /// Initialize the \ref Screen
-    void initialize(GLFWwindow *window, bool shutdown_glfw);
+    void initialize(GLFWwindow *window, bool shutdown_glfw,NVGcontext *context = nullptr);
 
     /* Event handlers */
     void cursor_pos_callback_event(double x, double y);
