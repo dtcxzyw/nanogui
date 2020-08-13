@@ -14,6 +14,8 @@
 
 #include <nanogui/widget.h>
 
+class BSPopup;
+
 NAMESPACE_BEGIN(nanogui)
 
 /**
@@ -23,6 +25,7 @@ NAMESPACE_BEGIN(nanogui)
  */
 class NANOGUI_EXPORT Window : public Widget {
     friend class Popup;
+    friend class ::BSPopup;
 public:
     Window(Widget *parent, const std::string &title = "Untitled");
 
